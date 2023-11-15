@@ -2,10 +2,10 @@
 Rest API using .Net core and Postgresql
 
 Español - Rest API para sistema de ventas 
- - JWT (Login)
+ - JWT (Login, roles y permisos)
  - PostgreSQL
  - JSON
- - MVC
+ - Modelos y controladores
    - Usuarios
    - Autenticación
    - ...
