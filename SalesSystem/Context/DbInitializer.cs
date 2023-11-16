@@ -8,6 +8,7 @@ namespace SalesSystem.Context
         public static void Initialize(ApplicationDBContext context)
         {
             context.Database.EnsureCreated();
+            string password = BCrypt.Net.BCrypt.HashPassword("password");
             if (!context.Users.Any())
             {
                 UserModel defaultUser = new()
@@ -18,7 +19,7 @@ namespace SalesSystem.Context
                     Age = 22,
                     Gender = "M",
                     Username = "keevsz",
-                    Password = "password",
+                    Password = password,
                     Role= RoleType.ADMIN
                 };
 

@@ -42,9 +42,19 @@ namespace SalesSystem.Controllers
             string username = data.username.ToString();
             string password = data.password.ToString();
 
-            var user = await DB.Users.FirstOrDefaultAsync(u => u.Username == username && u.Password == password);
 
+            var user = await DB.Users.FirstOrDefaultAsync(u => u.Username == username);
             if (user == null)
+            {
+                return new
+                {
+                    success = false,
+                    message = "User not found",
+                    result = ""
+                };
+            }
+            bool isValidPassword = BCrypt.Net.BCrypt.Verify(password, user.Password);
+            if (isValidPassword == false)
             {
                 return new
                 {
@@ -53,6 +63,8 @@ namespace SalesSystem.Controllers
                     result = ""
                 };
             }
+
+
             var jwt = _config.GetSection("Jwt");
 
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_config["Jwt:Key"]!));

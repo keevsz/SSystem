@@ -42,6 +42,8 @@ namespace SalesSystem.Controllers
         [Authorize(Roles = RoleStrings.ADMIN)]
         public async Task<ActionResult<UserModel>> CreateUser(UserModel user)
         {
+            string defaultHashedPassword = BCrypt.Net.BCrypt.HashPassword("password");
+            user.Password = defaultHashedPassword;
             DB.Users.Add(user);
             await DB.SaveChangesAsync();
             return CreatedAtAction(nameof(GetUserById), new { id = user.ID }, user);
@@ -113,6 +115,5 @@ namespace SalesSystem.Controllers
             await DB.SaveChangesAsync();
             return Ok("User deleted");
         }
-
     }
 }
