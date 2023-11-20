@@ -6,6 +6,7 @@ using SalesSystem.Models;
 using System.Security.Claims;
 using static SalesSystem.Models.Roles;
 
+
 namespace SalesSystem.Controllers
 {
     [ApiController]
@@ -21,14 +22,14 @@ namespace SalesSystem.Controllers
         [HttpGet]
         public async Task<ActionResult<IEnumerable<UserModel>>> GetUsers()
         {
-            var users = await DB.Users.ToListAsync();
+            var users = await DB.Users.Include(u => u.Role).ToListAsync();
             return Ok(users);
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<UserModel>> GetUserById(int id)
         {
-            var user = await DB.Users.FindAsync(id);
+            var user = await DB.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.ID == id);
 
             if (user == null)
             {
@@ -40,52 +41,85 @@ namespace SalesSystem.Controllers
 
         [HttpPost]
         [Authorize(Roles = RoleStrings.ADMIN)]
-        public async Task<ActionResult<UserModel>> CreateUser(UserModel user)
+        public async Task<ActionResult<UserModel>> CreateUser([FromBody] UserCreateDTO userDto)
         {
             string defaultHashedPassword = BCrypt.Net.BCrypt.HashPassword("password");
-            user.Password = defaultHashedPassword;
-            DB.Users.Add(user);
+
+            var newUser = new UserModel
+            {
+                FirstName = userDto.FirstName,
+                LastName = userDto.LastName,
+                Email = userDto.Email,
+                Age = userDto.Age,
+                Gender = userDto.Gender,
+                Username = userDto.Username,
+                Password = defaultHashedPassword, 
+                RoleID = userDto.RoleID
+            };
+
+            var role = await DB.Roles.FirstOrDefaultAsync(r => r.Id == userDto.RoleID);
+            DB.Users.Add(newUser);
             await DB.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetUserById), new { id = user.ID }, user);
+
+            return CreatedAtAction(nameof(GetUserById), new { id = newUser.ID }, newUser);
         }
 
         [HttpPut("{id}")]
         [Authorize]
-        public async Task<ActionResult<UserModel>> UpdateUser(int id, UserModel user)
+        public async Task<ActionResult<UserModel>> UpdateUser(int id, UserUpdateDTO userDto)
         {
-
             var identity = HttpContext.User.Identity as ClaimsIdentity;
-            var uuserLoggedId = identity.Claims.FirstOrDefault(x => x.Type == "id")!.Value;
+            var userLoggedId = identity.Claims.FirstOrDefault(x => x.Type == "id")!.Value;
             var userLoggedRole = identity.Claims.FirstOrDefault(x => x.Type == ClaimTypes.Role)!.Value;
 
-
-
-            if (id != user.ID)
+            if (id != userDto.ID)
             {
-                return BadRequest("Bad ids request");
+                return BadRequest("Bad id request");
+            }
+
+            var existingUser = await DB.Users.FindAsync(id);
+
+            if (existingUser == null)
+            {
+                return NotFound();
             }
 
             if (userLoggedRole != RoleStrings.ADMIN)
             {
-                if (user.ID != int.Parse(uuserLoggedId))
+                if (userDto.ID != int.Parse(userLoggedId))
                 {
                     return Unauthorized("You do not have permissions");
                 }
+
+                // Si el usuario no es un administrador, no permitir la actualización del rol
+                userDto.RoleID = existingUser.RoleID;
+            }
+            else
+            {
+                // Solo actualizar el rol si el usuario es un administrador
+                existingUser.RoleID = userDto.RoleID;
             }
 
-            DB.Entry(user).State = EntityState.Modified;
+            existingUser.FirstName = userDto.FirstName;
+            existingUser.LastName = userDto.LastName;
+            existingUser.Email = userDto.Email;
+            existingUser.Age = userDto.Age;
+            existingUser.Gender = userDto.Gender;
+            existingUser.Username = userDto.Username;
+
+            Console.WriteLine("Nueva password: " + userDto.Password);
+
+            if (!string.IsNullOrWhiteSpace(userDto.Password))
+            {
+                existingUser.Password = BCrypt.Net.BCrypt.HashPassword(userDto.Password);
+            }
+
+            DB.Entry(existingUser).State = EntityState.Modified;
 
             try
             {
                 await DB.SaveChangesAsync();
-                var updatedUser = await DB.Users.FindAsync(id);
-
-                if (updatedUser == null)
-                {
-                    return NotFound();
-                }
-
-                return updatedUser;
+                return existingUser;
             }
             catch (DbUpdateConcurrencyException)
             {
@@ -99,6 +133,8 @@ namespace SalesSystem.Controllers
                 }
             }
         }
+
+
 
         [HttpDelete("{id}")]
         [Authorize(Roles=RoleStrings.ADMIN)]

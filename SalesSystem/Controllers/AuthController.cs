@@ -43,7 +43,7 @@ namespace SalesSystem.Controllers
             string password = data.password.ToString();
 
 
-            var user = await DB.Users.FirstOrDefaultAsync(u => u.Username == username);
+            var user = await DB.Users.Include(u => u.Role).FirstOrDefaultAsync(u => u.Username == username);
             if (user == null)
             {
                 return new
@@ -75,7 +75,7 @@ namespace SalesSystem.Controllers
                 new Claim("id", user.ID.ToString()),
                 new Claim(ClaimTypes.Name, user.FullName),
                 new Claim(ClaimTypes.Email, user.Email),
-                new Claim(ClaimTypes.Role, user.Role.ToString()),
+                new Claim(ClaimTypes.Role, user.Role.Name),
             };
 
             var token = new JwtSecurityToken(
